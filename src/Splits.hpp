@@ -23,6 +23,8 @@ public:
 	Split* get_split(size_t index);
 	// get number of how many splits there areo
 	size_t get_splits_ammount();
+	// is this split active?
+	bool is_active(size_t index);
 
 	// create and activate a new split
 	void new_split(const std::string& name);

@@ -3,10 +3,11 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <cstdint>
 
 #include <ncurses.h>
 
-//#include "Splits.hpp"
+#include "Splits.hpp"
 
 using hi_res_clock = std::chrono::high_resolution_clock;
 using milliseconds = std::chrono::milliseconds;
@@ -21,24 +22,19 @@ enum {
 	btn_up = 'k'
 };
 
-struct Split {
-	std::string name;
-	long long unsigned duration_millisec;
-};
-
 void init_ncurses();
 void deinit_ncurses();
-void save_split(Split* const split, const milliseconds* const segment_duration);
+void save_split(
+    Splits* const splits, const milliseconds* const segment_duration);
 
-/* TODO
- * - Wrap spit management into class to guard bounds, manage active split, etc
- */
+/* TODO - separate update and draw cycles, we want to check for input much more
+ * often than we want to draw on the screen */
 
 int main ()
 {
-	std::vector<Split> splits;
-	splits.push_back(Split{"split_1", 0});
-	size_t current_split {0};
+	const std::string default_name {"split_1"};
+	Splits splits;
+	splits.new_split(default_name);
 
 	init_ncurses();
 
@@ -64,7 +60,7 @@ int main ()
 			is_stopped = !is_stopped;
 
 			if (is_stopped) {
-				save_split(&splits[current_split], &segment_duration);
+				save_split(&splits, &segment_duration);
 			} else {
 				timer_start = hi_res_clock::now();
 			}
@@ -74,14 +70,13 @@ int main ()
 
 		case btn_new:
 			if (is_stopped == false) {
-				save_split(&splits[current_split], &segment_duration);
+				save_split(&splits, &segment_duration);
 				timer_start = hi_res_clock::now();
 			}
 
 			std::stringstream name_buf_ss;
-			name_buf_ss << "split_" << (splits.size() + 1);
-			splits.push_back(Split{name_buf_ss.str(), 0});
-			current_split = splits.size() - 1;
+			name_buf_ss << "split_" << (splits.get_splits_ammount() + 1);
+			splits.new_split(name_buf_ss.str());
 			break;
 		}
 
@@ -90,19 +85,21 @@ int main ()
 		int print_offset_y {1};
 		int print_offset_x {0};
 		int duration_print_offset_x {40};
-		for (size_t i {0}; i < splits.size(); ++i) {
+		for (size_t i {0}; i < splits.get_splits_ammount(); ++i) {
 			move(i + print_offset_y, print_offset_x);
 			clrtoeol();
-			if (i == current_split) {
+			if (splits.is_active(i)) {
 				addstr("> ");
 			} else {
 				addstr("  ");
 			}
 
-			printw("%s", splits[i].name.c_str());
+			const Split* const current_split {splits.get_split(i)};
+			if (current_split == nullptr) { break; } // TODO - report error
+			printw("%s", current_split->name.c_str());
 
-			long long unsigned duration_display = splits[i].duration_millisec;
-			if (is_stopped == false && i == current_split) {
+			uint64_t duration_display = current_split->duration;
+			if (is_stopped == false && splits.is_active(i)) {
 				duration_display += segment_duration.count();
 			}
 			unsigned duration_display_hours {
@@ -123,11 +120,6 @@ int main ()
 				duration_buf << "0";
 			}
 			duration_buf << duration_display_millis;
-			// duration_buf
-			// << duration_display / (3600 * 1000) << ":" //hours
-			// << (duration_display % (3600 * 1000)) / (60 * 1000) << ":" //minutes
-			// << (duration_display % (60 * 1000)) / 1000 << "."
-			// << duration_display % 1000;
 			mvaddstr(i + print_offset_y, duration_print_offset_x,
 				 duration_buf.str().c_str());
 			// mvprintw(i + print_offset_y, duration_print_offset_x,
@@ -161,7 +153,7 @@ void deinit_ncurses()
 }
 
 void save_split(
-    Split* const split,	const milliseconds* const segment_duration)
+    Splits* const splits, const milliseconds* const segment_duration)
 {
-	split->duration_millisec += segment_duration->count();
+	splits->add_duration(segment_duration->count());
 }

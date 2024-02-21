@@ -20,7 +20,7 @@ void Splits::add_duration(uint64_t duration)
 Split* Splits::get_split(size_t index)
 {
 	if (index < this->splits.size()) {
-		return &this->splits[this->active_split];
+		return &this->splits[index];
 	} else {
 		return nullptr;
 	}
@@ -29,4 +29,9 @@ Split* Splits::get_split(size_t index)
 size_t Splits::get_splits_ammount()
 {
 	return this->splits.size();
+}
+
+bool Splits::is_active(size_t index)
+{
+	return index == this->active_split;
 }

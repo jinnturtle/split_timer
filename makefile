@@ -29,7 +29,7 @@ OBJ = $(_OBJ:%=$(OBJ_DIR)/%)
 DEPS := $(OBJ:%.o=%.d)
 
 TAGS_FLAGS := --fields=* --extras=* --extras-c++=* -R
-TAGS_FLAGS += $(SRC_DIR) /usr/include/{gl,GLFW,glm}/*
+TAGS_FLAGS += $(SRC_DIR)
 
 all: build
 

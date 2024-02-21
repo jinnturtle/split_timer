@@ -3,5 +3,5 @@ split_timer
 obj/*
 
 # generated project and auxiliary files
-tags
+TAGS
 README.html
