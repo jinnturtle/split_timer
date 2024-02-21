@@ -6,6 +6,8 @@ Splits::Splits()
 : active_split {std::numeric_limits<size_t>::max()}
 {}
 
+size_t Splits::get_active_idx() const { return this->active_split; }
+
 const Split* Splits::get_split(size_t index) const
 {
 	if (index < this->splits.size()) {
@@ -15,10 +17,7 @@ const Split* Splits::get_split(size_t index) const
 	}
 }
 
-size_t Splits::get_splits_ammount() const
-{
-	return this->splits.size();
-}
+size_t Splits::get_splits_ammount() const { return this->splits.size(); }
 
 bool Splits::is_active(size_t index) const
 {

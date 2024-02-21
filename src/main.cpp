@@ -8,6 +8,7 @@
 #include <ncurses.h>
 
 #include "Splits.hpp"
+#include "version.hpp"
 
 using hi_res_clock = std::chrono::high_resolution_clock;
 using milliseconds = std::chrono::milliseconds;
@@ -39,6 +40,7 @@ void save_split(
 
 int main ()
 {
+    const std::string program_name {"split_timer"};
 	const std::string default_name {"split_1"};
 	Splits splits;
 	splits.new_split(default_name);
@@ -52,10 +54,14 @@ int main ()
 	milliseconds segment_duration {0};
 	auto frame_start {hi_res_clock::now()};
 	auto timer_start {hi_res_clock::now()};
-	std::string status_str;
-	bool is_stopped {true};
+    bool is_stopped {true};
 
-	int cmd {0};
+    struct Status_line {
+        int x, y;
+        std::string msg;
+    } status_line {0, 0, {program_name + " " + version_str()}};
+
+        int cmd {0};
 	while (cmd != btn_quit) {
 		frame_start = hi_res_clock::now();
 		segment_duration =
@@ -72,7 +78,8 @@ int main ()
 				timer_start = hi_res_clock::now();
 			}
 
-			status_str = (is_stopped)? "*** STOPPED ***" : "*** RUNNING ***";
+			status_line.msg =
+                (is_stopped)? "*** STOPPED ***" : "*** RUNNING ***";
 			break;
 
 		case btn_new:
@@ -87,7 +94,7 @@ int main ()
 			break;
 		}
 
-		mvprintw(0, 0, status_str.c_str());
+		mvprintw(0, 0, status_line.msg.c_str());
         clrtoeol();
         draw_splits(0, 1, 40, &splits, is_stopped, &segment_duration);
 

@@ -5,7 +5,8 @@ OBJ_DIR = obj
 
 CXX_SRC =\
 	main.cpp\
-	Splits.cpp
+	Splits.cpp\
+	version.cpp
 
 C_SRC =\
 
@@ -14,7 +15,7 @@ LL = g++
 CC = gcc
 OPTIMIZATION_FLAGS =
 CXX_FLAGS = -std=c++17 -Wall -Wextra -MMD -MF $(patsubst %.o,%.d,$@)
-#CXX_FLAGS += -DPROGRAM_VERSION="$(shell git describe)"
+CXX_FLAGS += -DPROGRAM_VERSION="$(shell git describe)"
 CC_FLAGS = -Wall -Wextra
 LD_FLAGS =
 DBG_FLAGS = -ggdb -DDEBUG=8

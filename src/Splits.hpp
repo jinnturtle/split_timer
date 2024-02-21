@@ -15,6 +15,8 @@ public:
 	Splits();
 	~Splits() = default;
 
+	// get index of active split
+	size_t get_active_idx() const;
 	// get a const handle to a split
 	// WARNING: refrain from modifying the object at address, fairies may die
 	// RETURNS: ptr. to split at index, nullptr on error
