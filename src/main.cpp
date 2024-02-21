@@ -22,8 +22,15 @@ enum {
 	btn_up = 'k'
 };
 
-void init_ncurses();
 void deinit_ncurses();
+void draw_splits(
+    int x,
+    int y,
+    int duration_x,
+    const Splits* const splits,
+    bool is_stopped,
+    const milliseconds* const segment_duration);
+void init_ncurses();
 void save_split(
     Splits* const splits, const milliseconds* const segment_duration);
 
@@ -45,7 +52,7 @@ int main ()
 	milliseconds segment_duration {0};
 	auto frame_start {hi_res_clock::now()};
 	auto timer_start {hi_res_clock::now()};
-	std::string status_str {"            "};
+	std::string status_str;
 	bool is_stopped {true};
 
 	int cmd {0};
@@ -65,7 +72,7 @@ int main ()
 				timer_start = hi_res_clock::now();
 			}
 
-			status_str = (is_stopped)? "*** STOP ***" : "*** RUN  ***";
+			status_str = (is_stopped)? "*** STOPPED ***" : "*** RUNNING ***";
 			break;
 
 		case btn_new:
@@ -81,50 +88,8 @@ int main ()
 		}
 
 		mvprintw(0, 0, status_str.c_str());
-
-		int print_offset_y {1};
-		int print_offset_x {0};
-		int duration_print_offset_x {40};
-		for (size_t i {0}; i < splits.get_splits_ammount(); ++i) {
-			move(i + print_offset_y, print_offset_x);
-			clrtoeol();
-			if (splits.is_active(i)) {
-				addstr("> ");
-			} else {
-				addstr("  ");
-			}
-
-			const Split* const current_split {splits.get_split(i)};
-			if (current_split == nullptr) { break; } // TODO - report error
-			printw("%s", current_split->name.c_str());
-
-			uint64_t duration_display = current_split->duration;
-			if (is_stopped == false && splits.is_active(i)) {
-				duration_display += segment_duration.count();
-			}
-			unsigned duration_display_hours {
-				static_cast<unsigned>(duration_display / (3600 * 1000))};
-			unsigned duration_display_minutes {static_cast<unsigned>(
-				(duration_display % (3600 * 1000)) / (60 * 1000))};
-			unsigned duration_display_seconds {static_cast<unsigned>(
-				(duration_display % (60 * 1000)) / 1000)};
-			unsigned duration_display_millis {static_cast<unsigned>(
-				duration_display % 1000)};
-			std::stringstream duration_buf;
-			duration_buf << duration_display_hours << ":";
-			if (duration_display_minutes < 10) { duration_buf << "0"; }
-			duration_buf << duration_display_minutes << ":";
-			if (duration_display_seconds < 10) { duration_buf << "0"; }
-			duration_buf << duration_display_seconds << ".";
-			for (unsigned j {duration_display_millis +1}; j < 100; j *= 10) {
-				duration_buf << "0";
-			}
-			duration_buf << duration_display_millis;
-			mvaddstr(i + print_offset_y, duration_print_offset_x,
-				 duration_buf.str().c_str());
-			// mvprintw(i + print_offset_y, duration_print_offset_x,
-			// 		 "DUR: %u", duration_display);
-		}
+        clrtoeol();
+        draw_splits(0, 1, 40, &splits, is_stopped, &segment_duration);
 
 		frame_duration =
 			std::chrono::duration_cast<nanoseconds>(
@@ -156,4 +121,54 @@ void save_split(
     Splits* const splits, const milliseconds* const segment_duration)
 {
 	splits->add_duration(segment_duration->count());
+}
+
+
+void draw_splits(
+    int x,
+    int y,
+    int duration_x,
+    const Splits* const splits,
+    bool is_stopped,
+    const milliseconds* const segment_duration)
+{
+    for (size_t i {0}; i < splits->get_splits_ammount(); ++i) {
+        move(i + y, x);
+        clrtoeol();
+        if (splits->is_active(i)) {
+            addstr("> ");
+        } else {
+            addstr("  ");
+        }
+
+        const Split* const current_split {splits->get_split(i)};
+        if (current_split == nullptr) { break; } // TODO - report error
+        printw("%s", current_split->name.c_str());
+
+        uint64_t duration_display = current_split->duration;
+        if (is_stopped == false && splits->is_active(i)) {
+            duration_display += segment_duration->count();
+        }
+
+        unsigned duration_display_hours {
+            static_cast<unsigned>(duration_display / (3600 * 1000))};
+        unsigned duration_display_minutes {static_cast<unsigned>(
+				(duration_display % (3600 * 1000)) / (60 * 1000))};
+        unsigned duration_display_seconds {static_cast<unsigned>(
+				(duration_display % (60 * 1000)) / 1000)};
+        unsigned duration_display_millis {static_cast<unsigned>(
+				duration_display % 1000)};
+
+        std::stringstream duration_buf;
+        duration_buf << duration_display_hours << ":";
+        if (duration_display_minutes < 10) { duration_buf << "0"; }
+        duration_buf << duration_display_minutes << ":";
+        if (duration_display_seconds < 10) { duration_buf << "0"; }
+        duration_buf << duration_display_seconds << ".";
+        for (unsigned j {duration_display_millis +1}; j < 100; j *= 10) {
+            duration_buf << "0";
+        }
+        duration_buf << duration_display_millis;
+        mvaddstr(i + y, duration_x, duration_buf.str().c_str());
+    }
 }
