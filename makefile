@@ -34,6 +34,18 @@ TAGS_FLAGS += $(SRC_DIR)
 
 all: build
 
+# RELEASE ----------------------------------------------------------------------
+.PHONY: release
+release: DBG_FLAGS =
+release: CXX_FLAGS += -O2
+release: CC_FLAGS += -O2
+
+release: all strip
+
+strip: $(NAME)
+	strip $<
+# ------------------------------------------------------------------------------
+
 .PHONY: build
 build: $(OBJ_DIR) $(NAME)
 
