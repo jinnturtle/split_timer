@@ -1,0 +1,7 @@
+# compiled files and compilation artefacts
+split_timer
+obj/*
+
+# generated project and auxiliary files
+tags
+README.html
