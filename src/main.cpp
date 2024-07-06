@@ -10,10 +10,12 @@
 
 #include <ncurses.h>
 
+#include "Ia_commands.hpp"
 #include "Splits.hpp"
 #include "version.hpp"
+#include "utils.hpp"
 
-using sys_clock        = std::chrono::high_resolution_clock;
+using sys_clock    = std::chrono::high_resolution_clock;
 using milliseconds = std::chrono::milliseconds;
 using nanoseconds  = std::chrono::nanoseconds;
 
@@ -21,7 +23,7 @@ enum {
     btn_down = 'j',
     btn_new = 'n',
     btn_quit = 'q',
-    brn_rename = 'n',
+    btn_rename = 'n',
     btn_start_stop = 's',
     btn_up = 'k'
 };
@@ -35,16 +37,13 @@ void draw_splits(
     bool is_stopped,
     const milliseconds* const segment_duration);
 void init_ncurses();
-std::string millis_to_hmsm(uint64_t millis);
 // run in interactive mode
 int run_ia_mode(const std::string& program_name);
 // run in ncurses mode
 int run_nc_mode(const std::string& program_name);
-void save_split(
-    Splits* const splits, const milliseconds* const segment_duration);
 
-/* TODO - separate update and draw cycles, we want to check for input much more
- * often than we want to draw on the screen */
+/* TODO - (nc mode) separate update and draw cycles, we want to check for input
+ * much more often than we want to draw on the screen */
 
 int main (int argc, char** argv)
 {
@@ -70,35 +69,10 @@ void init_ncurses()
     curs_set(0); //hide the cursor
 }
 
-std::string millis_to_hmsm(uint64_t millis) {
-    unsigned duration_display_hours {
-        static_cast<unsigned>(millis / (3600 * 1000))};
-    unsigned duration_display_minutes {static_cast<unsigned>(
-            (millis % (3600 * 1000)) / (60 * 1000))};
-    unsigned duration_display_seconds {static_cast<unsigned>(
-            (millis % (60 * 1000)) / 1000)};
-    unsigned duration_display_millis {static_cast<unsigned>(
-            millis % 1000)};
-
-    std::stringstream duration_buf;
-    duration_buf << duration_display_hours << ":";
-    if (duration_display_minutes < 10) { duration_buf << "0"; }
-    duration_buf << duration_display_minutes << ":";
-    if (duration_display_seconds < 10) { duration_buf << "0"; }
-    duration_buf << duration_display_seconds << ".";
-    for (unsigned j {duration_display_millis +1}; j < 100; j *= 10) {
-        duration_buf << "0";
-    }
-    duration_buf << duration_display_millis;
-
-    return duration_buf.str();
-}
-
 void deinit_ncurses()
 {
     endwin();
 }
-
 
 void draw_splits(
     int x,
@@ -134,111 +108,37 @@ int run_ia_mode(const std::string& prog_name)
 {
     std::string prompt("> ");
 
-    enum command_indexes {
-        CMD_unknown = 0,
-        CMD_list, // print info of all splits
-        CMD_next, // select next split (creates new if now at end)
-        CMD_quit, // quit the program
-        CMD_startstop, // toggle start/stop of current split
-        CMD_select, // select a split by name (or position?)
-        CMD_rename // change name of current split
-    };
-
     std::cout << prog_name << " " << version_str() << std::endl;
 
-    // TODO - pointing to a callback (not index) would prob be a nicer solution
-    std::map<std::string, unsigned> command_dict {
-        {"unknown", CMD_unknown},
-        {"l", CMD_list},
-        {"n", CMD_next},
-        {"q", CMD_quit},
-        {"s", CMD_startstop},
-        {"sel", CMD_select},
-        {"ren", CMD_rename}
+    std::map<std::string, Ia_cmd> command_dict {
+        {"l", {"list", "print the splits", &ia_cmd_list}},
+        {"n", {"next", "create/select next split", &ia_cmd_next}},
+        {"q", {"quit", "terminate the program", &ia_cmd_quit}},
+        {"s", {"start/stop", "start/stop split", &ia_cmd_startstop}},
+        {"h", {"help", "display help", &ia_cmd_help}},
+        {"ren", {"rename", "(not implemented)", &ia_cmd_unimplemented}},
+        {"sel", {"select", "(not implemented)", &ia_cmd_unimplemented}}
     };
 
-    std::string def_split_name {"split"};
     Splits splits;
-    auto segment_start {sys_clock::now()};
-    bool is_stopped {true};
+    Ia_cmd_data cmd_data {
+        .command_dict = &command_dict,
+        .splits = &splits,
+        .def_split_name = "split",
+        .segment_start = sys_clock::now(),
+        .is_stopped = true,
+        .should_quit = false};
 
-    bool quit {false};
     std::string cmd_ibuf; // command input buffer
-    std::map<std::string, unsigned>::iterator cmd_ref {nullptr};
-    while (!quit) {
+    std::map<std::string, Ia_cmd>::iterator cmd_ref {nullptr};
+    while (!cmd_data.should_quit) {
         std::cout << prompt;
         std::cin >> cmd_ibuf;
         cmd_ref = command_dict.find(cmd_ibuf);
-        if (cmd_ref == command_dict.end()) {
-            cmd_ref = command_dict.find("unknown");
-        }
-
-        switch(cmd_ref->second) {
-        case CMD_list:
-            for (size_t i {0}; i < splits.get_splits_ammount(); ++i) {
-                const Split* tmp_sp = splits.get_split(i);
-                if (tmp_sp == nullptr) {continue;}
-
-                uint64_t split_millis {tmp_sp->duration};
-
-                if (i == splits.get_active_idx() && !is_stopped) {
-                    split_millis += std::chrono::duration_cast<milliseconds>(
-                        sys_clock::now() - segment_start).count();
-                }
-
-                std::stringstream obuf;
-                obuf << i << ":";
-                if (i == splits.get_active_idx()) {
-                    if (is_stopped) { obuf << "# "; }
-                    else { obuf << "> "; }
-                } else {
-                    obuf << "  ";
-                }
-                obuf << tmp_sp->name << " : " << millis_to_hmsm(split_millis);
-                std::cout << obuf.str() << std::endl;
-            }
-            break;
-
-        case CMD_next:
-            // TODO handle end and not end of list situations differently
-            {
-                std::stringstream name_buf_ss;
-                name_buf_ss << def_split_name
-                << "_" << (splits.get_splits_ammount() + 1);
-                splits.new_split(name_buf_ss.str());
-            }
-            break;
-
-        case CMD_quit:
-            quit = true;
-            break;
-
-        case CMD_startstop:
-            if (splits.get_splits_ammount() == 0) {
-                std::cout << "no split to start" << std::endl;
-                break;
-            }
-
-            std::cout << ((is_stopped)? "start" : "stop") << std::endl;
-            if (is_stopped) {
-                segment_start = sys_clock::now();
-            } else {
-                milliseconds segment_duration =
-                    std::chrono::duration_cast<milliseconds>(
-                        sys_clock::now() - segment_start);
-                save_split(&splits, &segment_duration);
-            }
-            is_stopped = !is_stopped;
-            break;
-
-        case CMD_select:
-            std::cout << "not implemented: " << cmd_ibuf << std::endl;
-            break;
-        case CMD_rename:
-            std::cout << "not implemented: " << cmd_ibuf << std::endl;
-            break;
-        default:
-            std::cout << "unknown command: " << cmd_ibuf << std::endl;
+        if (cmd_ref != command_dict.end()) {
+            cmd_ref->second.exec(&cmd_data);
+        } else {
+            std::cout << "unknown command '" << cmd_ibuf << "'" << std::endl;
         }
     }
 
@@ -280,7 +180,7 @@ int run_nc_mode(const std::string& prog_name)
             is_stopped = !is_stopped;
 
             if (is_stopped) {
-                save_split(&splits, &segment_duration);
+                splits.add_duration(segment_duration.count());
             } else {
                 timer_start = sys_clock::now();
             }
@@ -291,7 +191,7 @@ int run_nc_mode(const std::string& prog_name)
 
         case btn_new:
             if (is_stopped == false) {
-                save_split(&splits, &segment_duration);
+                splits.add_duration(segment_duration.count());
                 timer_start = sys_clock::now();
             }
 
@@ -316,10 +216,4 @@ int run_nc_mode(const std::string& prog_name)
 
     deinit_ncurses();
     return 0;
-}
-
-void save_split(
-    Splits* const splits, const milliseconds* const segment_duration)
-{
-    splits->add_duration(segment_duration->count());
 }

@@ -5,7 +5,9 @@ OBJ_DIR = obj
 
 CXX_SRC =\
 	main.cpp\
+	Ia_commands.cpp\
 	Splits.cpp\
+	utils.cpp\
 	version.cpp
 
 C_SRC =\
