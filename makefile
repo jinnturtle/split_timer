@@ -42,7 +42,7 @@ release: DBG_FLAGS =
 release: CXX_FLAGS += -O2
 release: CC_FLAGS += -O2
 
-release: all strip
+release: clean all strip
 
 strip: $(NAME)
 	strip $<
