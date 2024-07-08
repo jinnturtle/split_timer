@@ -42,6 +42,7 @@ void* ia_cmd_help(Ia_cmd_data* data)
 void* ia_cmd_list(Ia_cmd_data* data)
 {
     Splits* splits {data->splits};
+    uint64_t total_millis {0};
 
     for (size_t i {0}; i < splits->get_splits_ammount(); ++i) {
         const Split* tmp_sp = splits->get_split(i);
@@ -64,7 +65,11 @@ void* ia_cmd_list(Ia_cmd_data* data)
         }
         obuf << tmp_sp->name << " : " << millis_to_hmsm(split_millis);
         std::cout << obuf.str() << std::endl;
+
+        total_millis += split_millis;
     }
+
+    std::cout << "TOTAL: " << millis_to_hmsm(total_millis) << std::endl;
 
     return nullptr;
 }

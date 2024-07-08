@@ -42,8 +42,11 @@ int run_ia_mode(const std::string& program_name);
 // run in ncurses mode
 int run_nc_mode(const std::string& program_name);
 
-/* TODO - (nc mode) separate update and draw cycles, we want to check for input
- * much more often than we want to draw on the screen */
+/* TODO
+ * (nc mode) separate update and draw cycles, we want to check for input
+   much more often than we want to draw on the screen
+ * move nc mode-specific code to separate file, merge functions with ia mode
+   as much as possible and move to e.g. "shared_commands.cpp"*/
 
 int main (int argc, char** argv)
 {
@@ -148,6 +151,13 @@ int run_ia_mode(const std::string& prog_name)
 // TODO ugle, meant as POC at most, review and rewrite plz
 int run_nc_mode(const std::string& prog_name)
 {
+    std::cout
+    << "\n****************************************\n"
+    << "NOTICE: Ncurses mode is experimental at the moment.\n"
+    << "****************************************\n"
+    << "(press enter to proceed)" << std::endl;
+    std::cin.get();
+
     init_ncurses();
 
     const std::string def_split_name {"split"};
